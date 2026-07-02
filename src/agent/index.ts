@@ -379,9 +379,6 @@ function resolveModelId(
   return modelId;
 }
 
-// The Copilot API accepts GitHub OAuth tokens (for example from `gh auth
-// token` or an authenticated GitHub Copilot CLI session) and fine-grained
-// personal access tokens with the "Copilot Requests" permission.
 const COPILOT_DEFAULT_HEADERS = {
   "Copilot-Integration-Id": "vscode-chat",
   "Editor-Version": `OpenWiki/${OPENWIKI_VERSION}`,
@@ -410,8 +407,18 @@ async function createModel(provider: OpenWikiProvider, modelId: string) {
   const providerConfig = getProviderConfig(provider);
 
   if (provider === "copilot") {
+    const apiKey = process.env[COPILOT_API_KEY_ENV_KEY] ?? "";
+
+    // The Copilot API rejects Personal Access Tokens for third-party
+    // integrations; only GitHub OAuth tokens work here.
+    if (/^(ghp_|github_pat_)/u.test(apiKey)) {
+      throw new Error(
+        `The GitHub Copilot API does not accept Personal Access Tokens. Set ${COPILOT_API_KEY_ENV_KEY} to a GitHub OAuth token from a Copilot-enabled account (for example the output of \`gh auth token\`).`,
+      );
+    }
+
     return new ChatOpenAI({
-      apiKey: process.env[COPILOT_API_KEY_ENV_KEY],
+      apiKey,
       configuration: {
         baseURL: providerConfig.baseURL,
         defaultHeaders: COPILOT_DEFAULT_HEADERS,
