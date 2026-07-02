@@ -17,6 +17,7 @@ import type {
 import {
   ANTHROPIC_API_KEY_ENV_KEY,
   BASETEN_API_KEY_ENV_KEY,
+  COPILOT_API_KEY_ENV_KEY,
   FIREWORKS_API_KEY_ENV_KEY,
   getDefaultModelId,
   getProviderApiKeyEnvKey,
@@ -1260,6 +1261,7 @@ function formatEnvironmentDebug(): string {
   const keys = [
     OPENWIKI_PROVIDER_ENV_KEY,
     BASETEN_API_KEY_ENV_KEY,
+    COPILOT_API_KEY_ENV_KEY,
     FIREWORKS_API_KEY_ENV_KEY,
     OPENAI_API_KEY_ENV_KEY,
     ANTHROPIC_API_KEY_ENV_KEY,

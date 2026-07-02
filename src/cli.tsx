@@ -28,6 +28,7 @@ import {
 import {
   ANTHROPIC_API_KEY_ENV_KEY,
   BASETEN_API_KEY_ENV_KEY,
+  COPILOT_API_KEY_ENV_KEY,
   FIREWORKS_API_KEY_ENV_KEY,
   getDefaultModelId,
   getProviderApiKeyEnvKey,
@@ -1506,7 +1507,7 @@ function ChatInput({
 
     if (provider === null) {
       setError(
-        "Enter a valid provider: openrouter, baseten, fireworks, openai, or anthropic.",
+        "Enter a valid provider: openrouter, baseten, fireworks, openai, anthropic, or copilot.",
       );
       return;
     }
@@ -2921,6 +2922,7 @@ function sanitizeDiagnosticText(value: string): string {
 
   for (const key of [
     BASETEN_API_KEY_ENV_KEY,
+    COPILOT_API_KEY_ENV_KEY,
     FIREWORKS_API_KEY_ENV_KEY,
     OPENAI_API_KEY_ENV_KEY,
     ANTHROPIC_API_KEY_ENV_KEY,

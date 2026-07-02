@@ -70,6 +70,24 @@ These configuration options and secrets will be saved to `~/.openwiki/.env` on y
 
 ## Customizing
 
-OpenWiki supports OpenRouter, Fireworks, Baseten, OpenAI and Anthropic out of the box. By default, there are a few models pre-defined (GLM 5.2, Kimi K2.6, Sonnet 5, etc) but for each inference provider, OpenWiki will allow you to specify your own custom model ID.
+OpenWiki supports OpenRouter, Fireworks, Baseten, OpenAI, Anthropic and GitHub Copilot out of the box. By default, there are a few models pre-defined (GLM 5.2, Kimi K2.6, Sonnet 5, etc) but for each inference provider, OpenWiki will allow you to specify your own custom model ID.
+
+### GitHub Copilot
+
+The GitHub Copilot provider routes inference through the OpenAI-compatible Copilot API (`https://api.githubcopilot.com`), so teams can reuse an existing Copilot subscription instead of provisioning a separate inference API key.
+
+1. Install and authenticate the [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli), or generate a Copilot API token for your organization.
+2. Set the token as `COPILOT_API_KEY` (OpenWiki will prompt for it when you select GitHub Copilot during `openwiki --init`).
+3. Select `GitHub Copilot` as the provider and choose a model (for example `gpt-5.5`).
+
+The resulting `~/.openwiki/.env` looks like:
+
+```env
+OPENWIKI_PROVIDER="copilot"
+OPENWIKI_MODEL_ID="gpt-5.5"
+COPILOT_API_KEY="<your-copilot-token>"
+```
+
+In CI (such as the scheduled GitHub Actions workflow), set the `COPILOT_API_KEY` repository secret and export `OPENWIKI_PROVIDER=copilot` in the workflow environment.
 
 If there's an inference provider or model you'd like to see added, please open a PR!

@@ -1,6 +1,7 @@
 export const OPEN_WIKI_DIR = "openwiki";
 export const UPDATE_METADATA_PATH = `${OPEN_WIKI_DIR}/.last-update.json`;
 export const BASETEN_API_KEY_ENV_KEY = "BASETEN_API_KEY";
+export const COPILOT_API_KEY_ENV_KEY = "COPILOT_API_KEY";
 export const FIREWORKS_API_KEY_ENV_KEY = "FIREWORKS_API_KEY";
 export const OPENAI_API_KEY_ENV_KEY = "OPENAI_API_KEY";
 export const ANTHROPIC_API_KEY_ENV_KEY = "ANTHROPIC_API_KEY";
@@ -13,6 +14,7 @@ export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export type OpenWikiProvider =
   | "anthropic"
   | "baseten"
+  | "copilot"
   | "fireworks"
   | "openai"
   | "openrouter";
@@ -37,6 +39,7 @@ export const SELECTABLE_OPENWIKI_PROVIDERS = [
   "fireworks",
   "openai",
   "anthropic",
+  "copilot",
 ] as const satisfies readonly SelectableOpenWikiProvider[];
 
 export const PROVIDER_CONFIGS: Record<OpenWikiProvider, ProviderConfig> = {
@@ -47,6 +50,17 @@ export const PROVIDER_CONFIGS: Record<OpenWikiProvider, ProviderConfig> = {
     modelOptions: [
       { id: "zai-org/GLM-5.2", label: "GLM 5.2" },
       { id: "moonshotai/Kimi-K2.7-Code", label: "Kimi K2.7 Code" },
+    ],
+  },
+  copilot: {
+    apiKeyEnvKey: COPILOT_API_KEY_ENV_KEY,
+    baseURL: "https://api.githubcopilot.com",
+    label: "GitHub Copilot",
+    modelOptions: [
+      { id: "gpt-5.5", label: "GPT 5.5" },
+      { id: "gpt-5.4-mini", label: "GPT 5.4 mini" },
+      { id: "claude-sonnet-5", label: "Claude Sonnet 5" },
+      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
     ],
   },
   fireworks: {
