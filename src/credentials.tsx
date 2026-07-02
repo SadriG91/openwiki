@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useInput, useStdin } from "ink";
 import {
   DEFAULT_PROVIDER,
   getDefaultModelId,
@@ -14,7 +14,20 @@ import {
   resolveConfiguredProvider,
   SELECTABLE_OPENWIKI_PROVIDERS,
 } from "./constants.js";
+import {
+  detectGhCliToken,
+  isGhCliAvailable,
+  runGhAuthLogin,
+} from "./copilotAuth.js";
 import { openWikiEnvPath, saveOpenWikiEnv } from "./env.js";
+
+type CopilotAuthState =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "detected"; token: string }
+  | { kind: "not-detected"; ghAvailable: boolean }
+  | { kind: "logging-in" }
+  | { kind: "login-failed" };
 
 export type InitSetupResult = {
   modelId: string | null;
@@ -74,6 +87,10 @@ export function InitSetup({
   const [isCustomModelInput, setIsCustomModelInput] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [copilotAuth, setCopilotAuth] = useState<CopilotAuthState>({
+    kind: "idle",
+  });
+  const { setRawMode } = useStdin();
 
   useEffect(() => {
     const initialStep = getInitialStep(modelIdOverride, initialProvider);
@@ -105,8 +122,81 @@ export function InitSetup({
     setStep(initialStep);
   }, [initialProvider, modelIdOverride, onComplete]);
 
+  useEffect(() => {
+    if (step !== "api-key" || provider !== "copilot") {
+      return;
+    }
+
+    if (copilotAuth.kind !== "idle") {
+      return;
+    }
+
+    let cancelled = false;
+    setCopilotAuth({ kind: "checking" });
+
+    void (async () => {
+      const token = await detectGhCliToken();
+
+      if (cancelled) {
+        return;
+      }
+
+      if (token) {
+        setCopilotAuth({ kind: "detected", token });
+        return;
+      }
+
+      const ghAvailable = await isGhCliAvailable();
+
+      if (cancelled) {
+        return;
+      }
+
+      setCopilotAuth({ kind: "not-detected", ghAvailable });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, provider, copilotAuth.kind]);
+
+  async function launchGhAuthLogin() {
+    setCopilotAuth({ kind: "logging-in" });
+    setRawMode?.(false);
+
+    try {
+      const success = await runGhAuthLogin();
+
+      if (!success) {
+        setCopilotAuth({ kind: "login-failed" });
+        return;
+      }
+
+      const token = await detectGhCliToken();
+
+      setCopilotAuth(
+        token
+          ? { kind: "detected", token }
+          : { kind: "not-detected", ghAvailable: true },
+      );
+    } finally {
+      setRawMode?.(true);
+    }
+  }
+
   useInput((inputValue, key) => {
     if (isSaving || step === null) {
+      return;
+    }
+
+    if (
+      step === "api-key" &&
+      provider === "copilot" &&
+      key.tab &&
+      copilotAuth.kind !== "checking" &&
+      copilotAuth.kind !== "logging-in"
+    ) {
+      void launchGhAuthLogin();
       return;
     }
 
@@ -205,7 +295,12 @@ export function InitSetup({
     }
 
     if (step === "api-key") {
-      const trimmedInput = input.trim();
+      const trimmedInput =
+        input.trim().length > 0
+          ? input.trim()
+          : provider === "copilot" && copilotAuth.kind === "detected"
+            ? copilotAuth.token
+            : "";
 
       if (trimmedInput.length === 0) {
         setError(`${getProviderApiKeyEnvKey(provider)} is required.`);
@@ -414,6 +509,7 @@ export function InitSetup({
       <SetupPanel title="Prompt">
         {step ? (
           <Prompt
+            copilotAuth={copilotAuth}
             input={input}
             isCustomModelInput={isCustomModelInput}
             modelSelectionIndex={modelSelectionIndex}
@@ -511,6 +607,7 @@ function SetupPanel({ title, children }: SetupPanelProps) {
 }
 
 type PromptProps = {
+  copilotAuth: CopilotAuthState;
   input: string;
   isCustomModelInput: boolean;
   modelSelectionIndex: number;
@@ -520,6 +617,7 @@ type PromptProps = {
 };
 
 function Prompt({
+  copilotAuth,
   input,
   isCustomModelInput,
   modelSelectionIndex,
@@ -547,6 +645,10 @@ function Prompt({
   }
 
   if (step === "api-key") {
+    if (provider === "copilot") {
+      return <CopilotAuthPrompt authState={copilotAuth} input={input} />;
+    }
+
     return (
       <Box flexDirection="column">
         <Text>Paste your {getProviderLabel(provider)} API key.</Text>
@@ -614,6 +716,70 @@ function Prompt({
   }
 
   return null;
+}
+
+function CopilotAuthPrompt({
+  authState,
+  input,
+}: {
+  authState: CopilotAuthState;
+  input: string;
+}) {
+  if (authState.kind === "idle" || authState.kind === "checking") {
+    return (
+      <Text color="gray">Checking for an existing GitHub CLI session...</Text>
+    );
+  }
+
+  if (authState.kind === "logging-in") {
+    return (
+      <Text color="gray">
+        Running `gh auth login` — follow the prompts in this terminal...
+      </Text>
+    );
+  }
+
+  if (authState.kind === "detected") {
+    return (
+      <Box flexDirection="column">
+        <Text>Detected an existing GitHub CLI session.</Text>
+        <Text color="gray">
+          Press Enter to use it, Tab to sign in again, or paste a different
+          token below.
+        </Text>
+        <Text>
+          <Text color="gray">$</Text> COPILOT_API_KEY={" "}
+          <Text color="yellow">
+            {input.length > 0 ? mask(input) : "<from gh auth token>"}
+          </Text>
+        </Text>
+      </Box>
+    );
+  }
+
+  return (
+    <Box flexDirection="column">
+      <Text>No GitHub CLI session detected.</Text>
+      {authState.kind === "login-failed" ? (
+        <Text color="red">`gh auth login` did not complete successfully.</Text>
+      ) : null}
+      {authState.kind === "not-detected" && authState.ghAvailable ? (
+        <Text color="gray">
+          Press Tab to run `gh auth login`, or paste a GitHub OAuth token below.
+        </Text>
+      ) : (
+        <Text color="gray">
+          Install the GitHub CLI (https://cli.github.com), run `gh auth login`,
+          then paste the output of `gh auth token` below.
+        </Text>
+      )}
+      <Text>
+        <Text color="gray">$</Text> COPILOT_API_KEY={" "}
+        <Text color="yellow">{mask(input)}</Text>
+      </Text>
+      <Text color="gray">Press Enter to save it.</Text>
+    </Box>
+  );
 }
 
 function SelectionMarker({ isSelected }: { isSelected: boolean }) {
