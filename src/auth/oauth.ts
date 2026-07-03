@@ -40,8 +40,19 @@ const DEFAULT_CALLBACK_PORT = 53682;
 const OAUTH_CALLBACK_PORT_ENV_KEY = "OPENWIKI_OAUTH_CALLBACK_PORT";
 const HTTPS_OAUTH_REDIRECT_URI_ENV_KEY = "OPENWIKI_HTTPS_OAUTH_REDIRECT_URI";
 
+export type OAuthAuthOptions = {
+  onAuthorizationUrl?: (event: {
+    copiedToClipboard: boolean;
+    openedBrowser: boolean;
+    provider: AuthProviderId;
+    url: string;
+  }) => void;
+  silent?: boolean;
+};
+
 export async function runOAuthAuth(
   providerId: AuthProviderId,
+  options: OAuthAuthOptions = {},
 ): Promise<OAuthRunResult> {
   await loadOpenWikiEnv();
   const provider = getAuthProvider(providerId);
@@ -64,11 +75,20 @@ export async function runOAuthAuth(
     );
 
     const openedBrowser = await openBrowser(authUrl);
-    process.stdout.write(
-      openedBrowser
-        ? `Opened browser for ${provider.displayName} authorization. Waiting for callback...\n`
-        : `Open this URL to authorize ${provider.displayName}:\n${authUrl}\nWaiting for callback...\n`,
-    );
+    const copiedToClipboard = await copyToClipboard(authUrl);
+    options.onAuthorizationUrl?.({
+      copiedToClipboard,
+      openedBrowser,
+      provider: provider.id,
+      url: authUrl,
+    });
+    if (options.silent !== true) {
+      process.stdout.write(
+        openedBrowser
+          ? `Opened browser for ${provider.displayName} authorization. Waiting for callback...\n`
+          : `Open this URL to authorize ${provider.displayName}:\n${authUrl}\nWaiting for callback...\n`,
+      );
+    }
 
     const code = await callback.waitForCode(state);
     const tokenResponse = await exchangeAuthorizationCode({
@@ -560,9 +580,26 @@ async function openBrowser(url: string): Promise<boolean> {
   }
 }
 
-function execFilePromise(command: string, args: string[]): Promise<void> {
+async function copyToClipboard(value: string): Promise<boolean> {
+  if (process.platform !== "darwin") {
+    return false;
+  }
+
+  try {
+    await execFilePromise("pbcopy", [], value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function execFilePromise(
+  command: string,
+  args: string[],
+  input?: string,
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    execFile(command, args, (error) => {
+    const childProcess = execFile(command, args, (error) => {
       if (error) {
         reject(error);
         return;
@@ -570,6 +607,10 @@ function execFilePromise(command: string, args: string[]): Promise<void> {
 
       resolve();
     });
+
+    if (input !== undefined) {
+      childProcess.stdin?.end(input);
+    }
   });
 }
 

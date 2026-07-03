@@ -57,6 +57,7 @@ import type { OpenWikiCommand } from "./agent/types.js";
 
 type RunState =
   | { status: "idle" }
+  | { status: "setup-complete-exit"; result: InitSetupResult }
   | { status: "init-setup-saved"; result: InitSetupResult }
   | {
       status: "running";
@@ -439,6 +440,25 @@ function App({ command }: AppProps) {
             setSessionProvider(result.provider);
           }
 
+          if (!result.shouldContinueToRun) {
+            activeRunId.current += 1;
+            setResolvedCommand(null);
+            setActiveUserMessage(null);
+            setActiveMessageIsFollowup(false);
+            setRunState({ status: "setup-complete-exit", result });
+            process.exitCode = 0;
+            app.exit();
+            return;
+          }
+
+          if (result.runIngestionNow) {
+            setResolvedCommand("update");
+            setActiveUserMessage(
+              "Run the initial OpenWiki ingestion update from the configured sources.",
+            );
+            setActiveMessageIsFollowup(false);
+          }
+
           setRunState({ status: "init-setup-saved", result });
         }}
         onError={(message) => {
@@ -476,6 +496,22 @@ function App({ command }: AppProps) {
           />
         ) : null}
         <StatusLine tone="active" label="Next" value="starting openwiki" />
+      </Box>
+    );
+  }
+
+  if (runState.status === "setup-complete-exit") {
+    return (
+      <Box flexDirection="column">
+        <Header
+          modelId={runState.result.modelId ?? displayModelId}
+          subtitle="Setup complete"
+        />
+        <StatusLine
+          tone="success"
+          label="Setup"
+          value="saved; waiting for scheduled ingestion"
+        />
       </Box>
     );
   }

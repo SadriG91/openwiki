@@ -99,19 +99,26 @@ These configuration options and secrets will be saved to `~/.openwiki/.env` on y
 
 ## Local Connectors
 
-OpenWiki includes built-in connector scaffolding for local Git repositories, Notion, X/Twitter, Google, and Slack. During an `--update` run, the agent can call deterministic connector tools that write raw data and manifests under `~/.openwiki/connectors/<connector>/raw/`, then synthesize the wiki from those local files.
+OpenWiki's first-run onboarding offers connector setup for local Git repositories, Notion, Gmail, X/Twitter, Web Search, and Hacker News. During an `--update` run, the agent can call deterministic connector tools that write raw data and manifests under `~/.openwiki/connectors/<connector>/raw/`, then synthesize the wiki from those local files.
 
 - `git-repo` reads configured local repository paths and writes compact manifests.
 - `x` uses the X API directly with OAuth user-context credentials for home timeline, user posts, mentions, bookmarks, and list posts.
 - `notion` targets the hosted Notion MCP server, so users should authenticate through Notion OAuth instead of pasting a Notion token into OpenWiki.
 - `google` uses the Gmail API directly with OAuth user credentials to fetch recent mail, with room to add Drive, Calendar, and other Google providers later.
-- `slack` uses the Slack API directly with OAuth user-token credentials for self-message search, recent conversation history, DMs, and private channels visible to the user.
+- `web-search` uses Tavily through LangChain and requires `TAVILY_API_KEY`.
+- `hackernews` uses public Hacker News feed and search APIs, with no credentials required.
 
 Connector secrets are referenced by env var name and stored in `~/.openwiki/.env`; connector config files should never contain raw secret values.
 
 `openwiki auth <provider>` runs a local browser OAuth flow, saves returned tokens into `~/.openwiki/.env`, creates connector config when possible, and discovers MCP tools for MCP-backed providers. Slack and Gmail require app client credentials to already be set in that file; Notion uses dynamic client registration for hosted MCP; X uses OAuth 2.0 with PKCE. After `openwiki auth gmail`, the Google connector can ingest Gmail directly with no MCP transport setup.
 
 `openwiki auth configure <provider>` and `openwiki auth tools <provider>` are advanced/retry commands for regenerating connector config or inspecting live MCP tools.
+
+First-run onboarding also lets users choose a wiki template, customize its scope,
+and save per-source ingestion notes and source schedules in
+`~/.openwiki/onboarding.json`. On macOS, source schedules are installed as user
+LaunchAgents under `~/Library/LaunchAgents/` and write logs under
+`~/.openwiki/logs/`.
 
 See the OpenWiki operations docs for credential storage and provider setup
 notes.

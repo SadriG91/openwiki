@@ -43,7 +43,7 @@ The UI persists provider and model selection back to `~/.openwiki/.env` through 
 
 The first interactive run can prompt for:
 
-- a **provider** (`OPENWIKI_PROVIDER`) — openrouter, baseten, fireworks, openai, or anthropic,
+- a **provider** (`OPENWIKI_PROVIDER`) — openai, openrouter, baseten, fireworks, or anthropic,
 - the **provider API key** (e.g. `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`),
 - a **model ID** stored as `OPENWIKI_MODEL_ID` — chosen from the provider's model list or a custom ID,
 - optional `LANGSMITH_API_KEY` for tracing.
@@ -58,13 +58,13 @@ Providers and their model options are defined in `PROVIDER_CONFIGS` in `src/cons
 
 | Provider   | Env key              | Base URL                                | Models                                                                |
 | ---------- | -------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| openai     | `OPENAI_API_KEY`     | (default)                               | GPT 5.5, GPT 5.4 mini                                                 |
 | openrouter | `OPENROUTER_API_KEY` | `https://openrouter.ai/api/v1`          | GLM 5.2, Fusion, Kimi K2.7 Code, Claude Opus/Sonnet, GPT 5.4 mini/5.5 |
 | baseten    | `BASETEN_API_KEY`    | `https://inference.baseten.co/v1`       | GLM 5.2, Kimi K2.7 Code                                               |
 | fireworks  | `FIREWORKS_API_KEY`  | `https://api.fireworks.ai/inference/v1` | GLM 5.2, Kimi K2.7 Code                                               |
-| openai     | `OPENAI_API_KEY`     | (default)                               | GPT 5.4 mini, GPT 5.5                                                 |
 | anthropic  | `ANTHROPIC_API_KEY`  | (default)                               | Haiku, Sonnet, Opus                                                   |
 
-The default provider is `openrouter`. `resolveConfiguredProvider()` picks the provider from `OPENWIKI_PROVIDER`, falling back to openrouter if `OPENROUTER_API_KEY` is set, then to `DEFAULT_PROVIDER`.
+The default provider is `openai`, and the default model is `gpt-5.5`. `resolveConfiguredProvider()` picks the provider from `OPENWIKI_PROVIDER`, then falls back to the first configured provider API key in this order: OpenAI, OpenRouter, Anthropic, Baseten, Fireworks, and finally `DEFAULT_PROVIDER`.
 
 ## Help text and validation
 

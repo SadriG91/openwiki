@@ -27,6 +27,7 @@ import {
   OPENWIKI_X_CLIENT_ID_ENV_KEY,
   OPENWIKI_X_CLIENT_SECRET_ENV_KEY,
   OPENWIKI_X_REFRESH_TOKEN_ENV_KEY,
+  OPENWIKI_TAVILY_API_KEY_ENV_KEY,
   OPENWIKI_MODEL_ID_ENV_KEY,
   OPENWIKI_PROVIDER_ENV_KEY,
 } from "./constants.js";
@@ -74,6 +75,7 @@ const managedEnvKeys = [
   OPENWIKI_X_CLIENT_SECRET_ENV_KEY,
   OPENWIKI_X_ACCESS_TOKEN_ENV_KEY,
   OPENWIKI_X_REFRESH_TOKEN_ENV_KEY,
+  OPENWIKI_TAVILY_API_KEY_ENV_KEY,
   "OPENWIKI_HTTPS_OAUTH_REDIRECT_URI",
   "OPENWIKI_OAUTH_CALLBACK_PORT",
   "LANGSMITH_API_KEY",
@@ -140,6 +142,7 @@ export async function getCredentialDiagnostics(): Promise<
     createCredentialDiagnostic(OPENWIKI_X_CLIENT_SECRET_ENV_KEY, fileEnv),
     createCredentialDiagnostic(OPENWIKI_X_ACCESS_TOKEN_ENV_KEY, fileEnv),
     createCredentialDiagnostic(OPENWIKI_X_REFRESH_TOKEN_ENV_KEY, fileEnv),
+    createCredentialDiagnostic(OPENWIKI_TAVILY_API_KEY_ENV_KEY, fileEnv),
     createCredentialDiagnostic("LANGSMITH_API_KEY", fileEnv),
   ];
 }

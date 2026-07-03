@@ -1,4 +1,11 @@
-export type ConnectorId = "git-repo" | "google" | "notion" | "slack" | "x";
+export type ConnectorId =
+  | "git-repo"
+  | "google"
+  | "hackernews"
+  | "notion"
+  | "slack"
+  | "web-search"
+  | "x";
 
 export type ConnectorBackend =
   "direct-api" | "local-git" | "mcp-http" | "mcp-stdio";
