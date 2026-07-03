@@ -9,6 +9,7 @@ import { createDeepAgent, LocalShellBackend } from "deepagents";
 import { createOpenWikiConnectorTools } from "../connectors/tools.js";
 import { ensureWriteConnectorSkill } from "../connectors/write-connector-skill.js";
 import { loadOpenWikiEnv, openWikiEnvDir } from "../env.js";
+import { openWikiLocalWikiDir } from "../openwiki-home.js";
 import { createSystemPrompt, createUserPrompt } from "./prompt.js";
 import type {
   OpenWikiCommand,
@@ -44,11 +45,13 @@ import {
 
 export async function runOpenWikiAgent(
   command: OpenWikiCommand,
-  cwd = process.cwd(),
+  cwd = openWikiLocalWikiDir,
   options: OpenWikiRunOptions = {},
 ): Promise<OpenWikiRunResult> {
+  const runtimeCwd = options.outputMode ? cwd : openWikiLocalWikiDir;
+
   emitDebug(options, `command=${command}`);
-  emitDebug(options, `cwd=${cwd}`);
+  emitDebug(options, `cwd=${runtimeCwd}`);
   emitDebug(
     options,
     `userMessage=${options.userMessage ? "provided" : "not-provided"}`,
@@ -79,7 +82,7 @@ export async function runOpenWikiAgent(
   try {
     return await runOpenWikiAgentWithModelFallbacks(
       command,
-      cwd,
+      runtimeCwd,
       options,
       provider,
       modelId,
@@ -161,7 +164,7 @@ async function runOpenWikiAgentCore(
   provider: OpenWikiProvider,
   modelId: string,
 ): Promise<OpenWikiRunResult> {
-  const outputMode = options.outputMode ?? "repository";
+  const outputMode = options.outputMode ?? "local-wiki";
   const context = await createRunContext(command, cwd, outputMode);
   emitDebug(options, "context=created");
   const openWikiSnapshotBefore =
@@ -290,14 +293,14 @@ ${createUserPrompt(
   command,
   context,
   options.userMessage ?? null,
-  options.outputMode ?? "repository",
+  options.outputMode ?? "local-wiki",
 )}
 
-${formatRuntimeRootLabel(options.outputMode ?? "repository")}:
+${formatRuntimeRootLabel(options.outputMode ?? "local-wiki")}:
 ${cwd}
 
 Runtime note:
-- ${formatRuntimeRootInstruction(options.outputMode ?? "repository")}
+- ${formatRuntimeRootInstruction(options.outputMode ?? "local-wiki")}
 - Do not pass host absolute paths to filesystem tools. A host absolute path will be treated as a virtual path and will write to the wrong location.
 - Shell execute commands run on the host. For execute, use cd ${cwd} before commands that should run against this root.
 - Do not search parent directories or unrelated directories.
@@ -313,7 +316,7 @@ function formatRuntimeRootInstruction(outputMode: OpenWikiOutputMode): string {
     return "Filesystem tools use a virtual root: / means the local wiki directory above. Write wiki pages directly under /, for example /quickstart.md, /sources/gmail.md, and /_plan.md. Do not create a nested /openwiki directory.";
   }
 
-  return "Treat the repository root above as the only project you are documenting. Filesystem tools use a virtual root: / means the repository root. For ls, read_file, write_file, edit_file, glob, and grep, use virtual paths such as /README.md, /agent/agents/main.py, and /openwiki/quickstart.md.";
+  return "Treat the repository root above as source evidence only. The canonical generated wiki is ~/.openwiki/wiki, not a repository-local openwiki/ directory. Filesystem tools use a virtual root: / means the repository root for source inspection paths such as /README.md, /agent/agents/main.py, and /package.json.";
 }
 
 async function createCheckpointer(): Promise<SqliteSaver> {

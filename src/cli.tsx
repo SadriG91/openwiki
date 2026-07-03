@@ -40,6 +40,7 @@ import {
   readOpenWikiOnboardingConfig,
   saveOpenWikiOnboardingConfig,
 } from "./onboarding.js";
+import { openWikiLocalWikiDir } from "./openwiki-home.js";
 import {
   deleteConnectorSchedules,
   getSavedPowerScheduleStatus,
@@ -62,10 +63,9 @@ import {
   normalizeModelId,
   normalizeProvider,
   OPENAI_API_KEY_ENV_KEY,
-  OPENWIKI_PROVIDER_ENV_KEY,
   OPENWIKI_MODEL_ID_ENV_KEY,
+  OPENWIKI_PROVIDER_ENV_KEY,
   OPENROUTER_API_KEY_ENV_KEY,
-  OPEN_WIKI_DIR,
   resolveConfiguredProvider,
   SELECTABLE_OPENWIKI_PROVIDERS,
   OPENWIKI_VERSION,
@@ -163,7 +163,7 @@ function App({ command }: AppProps) {
     startupModelId,
   );
   const activeRunId = useRef(0);
-  const sessionThreadId = useRef(createOpenWikiThreadId(process.cwd()));
+  const sessionThreadId = useRef(createOpenWikiThreadId(openWikiLocalWikiDir));
   const mountedRef = useRef(false);
   const nextLogId = useRef(1);
   const nextCompletedRunId = useRef(1);
@@ -299,7 +299,7 @@ function App({ command }: AppProps) {
 
   function clearSession() {
     activeRunId.current += 1;
-    sessionThreadId.current = createOpenWikiThreadId(process.cwd());
+    sessionThreadId.current = createOpenWikiThreadId(openWikiLocalWikiDir);
     activeRunCredentialDiagnostics.current = undefined;
     activeRunLog.current = [];
     nextLogId.current = 1;
@@ -416,10 +416,11 @@ function App({ command }: AppProps) {
         });
     }
 
-    runOpenWikiAgent(resolvedCommand, process.cwd(), {
+    runOpenWikiAgent(resolvedCommand, openWikiLocalWikiDir, {
       debug: isDebugMode(),
       isFollowup: activeMessageIsFollowup,
       modelId: sessionModelId,
+      outputMode: "local-wiki",
       threadId: sessionThreadId.current,
       userMessage: activeUserMessage,
       onEvent: (event) => {
@@ -834,7 +835,7 @@ function DryRunView({
         />
         <StatusLine tone="muted" label="Agent" value="not invoked" />
         <StatusLine tone="muted" label="Writes" value="no files or metadata" />
-        <StatusLine tone="muted" label="Output" value={`${OPEN_WIKI_DIR}/`} />
+        <StatusLine tone="muted" label="Output" value="~/.openwiki/wiki" />
         <StatusLine
           tone="muted"
           label="Startup"
@@ -3791,11 +3792,12 @@ async function runPrintCommand(
   try {
     const output: string[] = [];
 
-    await runOpenWikiAgent(command.command, process.cwd(), {
+    await runOpenWikiAgent(command.command, openWikiLocalWikiDir, {
       debug: isDebugMode(),
       isFollowup: command.command === "chat",
       modelId: command.modelId,
-      threadId: createOpenWikiThreadId(process.cwd()),
+      outputMode: "local-wiki",
+      threadId: createOpenWikiThreadId(openWikiLocalWikiDir),
       userMessage: command.userMessage,
       onEvent: (event) => {
         if (event.type === "text" && event.source !== "subgraph") {
