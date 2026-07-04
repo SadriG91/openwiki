@@ -4,6 +4,7 @@ export const BASETEN_API_KEY_ENV_KEY = "BASETEN_API_KEY";
 export const FIREWORKS_API_KEY_ENV_KEY = "FIREWORKS_API_KEY";
 export const OPENAI_API_KEY_ENV_KEY = "OPENAI_API_KEY";
 export const ANTHROPIC_API_KEY_ENV_KEY = "ANTHROPIC_API_KEY";
+export const ANTHROPIC_BASE_URL_ENV_KEY = "ANTHROPIC_BASE_URL";
 export const OPENROUTER_API_KEY_ENV_KEY = "OPENROUTER_API_KEY";
 export const OPENWIKI_PROVIDER_ENV_KEY = "OPENWIKI_PROVIDER";
 export const OPENWIKI_MODEL_ID_ENV_KEY = "OPENWIKI_MODEL_ID";
@@ -27,6 +28,11 @@ export type ProviderModelOption = {
 type ProviderConfig = {
   apiKeyEnvKey: string;
   baseURL?: string;
+  /**
+   * Environment variable that, when set, overrides {@link ProviderConfig.baseURL}
+   * with an alternative base URL (e.g. a self-hosted or proxied endpoint).
+   */
+  baseUrlEnvKey?: string;
   label: string;
   modelOptions: ProviderModelOption[];
 };
@@ -71,6 +77,7 @@ export const PROVIDER_CONFIGS: Record<OpenWikiProvider, ProviderConfig> = {
   },
   anthropic: {
     apiKeyEnvKey: ANTHROPIC_API_KEY_ENV_KEY,
+    baseUrlEnvKey: ANTHROPIC_BASE_URL_ENV_KEY,
     label: "Anthropic",
     modelOptions: [
       { id: "claude-haiku-4-5", label: "Haiku" },
@@ -116,6 +123,27 @@ export function getProviderLabel(provider: OpenWikiProvider): string {
 
 export function getProviderApiKeyEnvKey(provider: OpenWikiProvider): string {
   return getProviderConfig(provider).apiKeyEnvKey;
+}
+
+/**
+ * Resolves the base URL for a provider, preferring an alternative base URL from
+ * the provider's configured environment variable over the built-in default.
+ * Returns `undefined` when neither is set, so callers fall back to the SDK's
+ * own default endpoint.
+ */
+export function resolveProviderBaseUrl(
+  provider: OpenWikiProvider,
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const config = getProviderConfig(provider);
+  const override = config.baseUrlEnvKey ? env[config.baseUrlEnvKey] : undefined;
+  const trimmedOverride = override?.trim();
+
+  if (trimmedOverride) {
+    return trimmedOverride;
+  }
+
+  return config.baseURL;
 }
 
 export function getProviderModelOptions(

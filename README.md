@@ -72,4 +72,18 @@ These configuration options and secrets will be saved to `~/.openwiki/.env` on y
 
 OpenWiki supports OpenRouter, Fireworks, Baseten, OpenAI and Anthropic out of the box. By default, there are a few models pre-defined (GLM 5.2, Kimi K2.6, Sonnet 5, etc) but for each inference provider, OpenWiki will allow you to specify your own custom model ID.
 
+### Alternative base URLs
+
+To route the Anthropic provider at an alternative, Anthropic-compatible endpoint
+(for example a self-hosted or proxied gateway) instead of the default API, set
+`ANTHROPIC_BASE_URL` alongside `ANTHROPIC_API_KEY`:
+
+```bash
+OPENWIKI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your-key
+ANTHROPIC_BASE_URL=https://your-gateway.example.com/anthropic
+```
+
+The base URL can be set in your environment or stored in `~/.openwiki/.env`.
+
 If there's an inference provider or model you'd like to see added, please open a PR!

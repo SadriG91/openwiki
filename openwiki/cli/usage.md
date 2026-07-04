@@ -62,9 +62,19 @@ Providers and their model options are defined in `PROVIDER_CONFIGS` in `src/cons
 | baseten    | `BASETEN_API_KEY`    | `https://inference.baseten.co/v1`       | GLM 5.2, Kimi K2.7 Code                                               |
 | fireworks  | `FIREWORKS_API_KEY`  | `https://api.fireworks.ai/inference/v1` | GLM 5.2, Kimi K2.7 Code                                               |
 | openai     | `OPENAI_API_KEY`     | (default)                               | GPT 5.4 mini, GPT 5.5                                                 |
-| anthropic  | `ANTHROPIC_API_KEY`  | (default)                               | Haiku, Sonnet, Opus                                                   |
+| anthropic  | `ANTHROPIC_API_KEY`  | (default, or `ANTHROPIC_BASE_URL`)      | Haiku, Sonnet, Opus                                                   |
 
 The default provider is `openrouter`. `resolveConfiguredProvider()` picks the provider from `OPENWIKI_PROVIDER`, falling back to openrouter if `OPENROUTER_API_KEY` is set, then to `DEFAULT_PROVIDER`.
+
+### Alternative base URLs
+
+Set `ANTHROPIC_BASE_URL` to route the anthropic provider at an alternative,
+Anthropic-compatible endpoint (for example a self-hosted or proxied gateway)
+instead of the default API. When set, it is passed to `ChatAnthropic` as
+`anthropicApiUrl`; the `ANTHROPIC_API_KEY` is still sent as the request
+credential. Base URLs are resolved by `resolveProviderBaseUrl()` in
+`src/constants.ts`, which prefers a provider's `baseUrlEnvKey` override over the
+built-in default.
 
 ## Help text and validation
 
@@ -81,6 +91,7 @@ The help content is centralized in `src/commands.ts` and is used by the CLI UI. 
 - Then update any user-visible text in `src/cli.tsx` and `README.md`.
 - If new options affect run behavior, make sure `src/agent/index.ts` and `src/credentials.tsx` still receive the right inputs.
 - If adding a provider, update `PROVIDER_CONFIGS` and `SELECTABLE_OPENWIKI_PROVIDERS` in `src/constants.ts`, `managedEnvKeys` in `src/env.ts`, and the `createModel` branch in `src/agent/index.ts`.
+- To let a provider accept an alternative base URL, set `baseUrlEnvKey` on its `PROVIDER_CONFIGS` entry, add that key to `managedEnvKeys` in `src/env.ts`, and read it through `resolveProviderBaseUrl()` in the provider's `createModel` branch.
 - Re-check the `package.json` bin entry and scripts if the entrypoint changes.
 
 ## Source map
