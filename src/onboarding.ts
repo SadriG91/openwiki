@@ -9,17 +9,26 @@ export const openWikiOnboardingPath = path.join(
   "onboarding.json",
 );
 
+export type OnboardingSourceScheduleConfig = {
+  description: string;
+  expression: string;
+  launchAgentPath?: string;
+  pausedAt?: string;
+  updatedAt: string;
+  warning?: string;
+};
+
 export type OnboardingSourceConfig = {
   connectedAt?: string;
+  connectorConfig?: Record<string, unknown>;
   ingestionGoal?: string;
-  schedule?: {
-    description: string;
-    expression: string;
-    launchAgentPath?: string;
-    pausedAt?: string;
-    updatedAt: string;
-    warning?: string;
-  };
+  schedule?: OnboardingSourceScheduleConfig;
+};
+
+export type OnboardingSourceInstanceConfig = OnboardingSourceConfig & {
+  connectorId: ConnectorId;
+  id: string;
+  name?: string;
 };
 
 export type OpenWikiPowerManagementConfig = {
@@ -35,7 +44,11 @@ export type OpenWikiPowerManagementConfig = {
 
 export type OpenWikiOnboardingConfig = {
   completedAt?: string;
+  ingestionSchedule?: OnboardingSourceScheduleConfig;
+  modeId?: string;
+  modeName?: string;
   powerManagement?: OpenWikiPowerManagementConfig;
+  sourceInstances: OnboardingSourceInstanceConfig[];
   sources: Partial<Record<ConnectorId, OnboardingSourceConfig>>;
   templateId?: string;
   templateName?: string;
@@ -45,6 +58,7 @@ export type OpenWikiOnboardingConfig = {
 
 export function createEmptyOnboardingConfig(): OpenWikiOnboardingConfig {
   return {
+    sourceInstances: [],
     sources: {},
     version: 1,
   };
@@ -84,7 +98,9 @@ export async function saveOpenWikiOnboardingConfig(
 export function isOnboardingComplete(
   config: OpenWikiOnboardingConfig,
 ): boolean {
-  return Boolean(config.completedAt && config.wikiGoal);
+  return Boolean(
+    config.completedAt && config.wikiGoal && config.ingestionSchedule,
+  );
 }
 
 export function isOpenWikiOnboardingCompleteSync(): boolean {
@@ -110,6 +126,7 @@ function normalizeOnboardingConfig(value: unknown): OpenWikiOnboardingConfig {
 
   const sources = isObject(value.sources) ? value.sources : {};
   const config: OpenWikiOnboardingConfig = {
+    sourceInstances: [],
     sources: {},
     version: 1,
   };
@@ -122,12 +139,28 @@ function normalizeOnboardingConfig(value: unknown): OpenWikiOnboardingConfig {
     config.wikiGoal = value.wikiGoal;
   }
 
+  if (typeof value.modeId === "string") {
+    config.modeId = value.modeId;
+  }
+
+  if (typeof value.modeName === "string") {
+    config.modeName = value.modeName;
+  }
+
   if (typeof value.templateId === "string") {
     config.templateId = value.templateId;
+    config.modeId ??= value.templateId;
   }
 
   if (typeof value.templateName === "string") {
     config.templateName = value.templateName;
+    config.modeName ??= value.templateName;
+  }
+
+  if (isObject(value.ingestionSchedule)) {
+    config.ingestionSchedule = normalizeSourceScheduleConfig(
+      value.ingestionSchedule,
+    );
   }
 
   if (isObject(value.powerManagement)) {
@@ -141,47 +174,129 @@ function normalizeOnboardingConfig(value: unknown): OpenWikiOnboardingConfig {
       continue;
     }
 
-    config.sources[sourceId] = {
-      connectedAt:
-        typeof sourceValue.connectedAt === "string"
-          ? sourceValue.connectedAt
-          : undefined,
-      ingestionGoal:
-        typeof sourceValue.ingestionGoal === "string"
-          ? sourceValue.ingestionGoal
-          : undefined,
-      schedule: isObject(sourceValue.schedule)
-        ? {
-            description:
-              typeof sourceValue.schedule.description === "string"
-                ? sourceValue.schedule.description
-                : "",
-            expression:
-              typeof sourceValue.schedule.expression === "string"
-                ? sourceValue.schedule.expression
-                : "",
-            launchAgentPath:
-              typeof sourceValue.schedule.launchAgentPath === "string"
-                ? sourceValue.schedule.launchAgentPath
-                : undefined,
-            pausedAt:
-              typeof sourceValue.schedule.pausedAt === "string"
-                ? sourceValue.schedule.pausedAt
-                : undefined,
-            updatedAt:
-              typeof sourceValue.schedule.updatedAt === "string"
-                ? sourceValue.schedule.updatedAt
-                : new Date(0).toISOString(),
-            warning:
-              typeof sourceValue.schedule.warning === "string"
-                ? sourceValue.schedule.warning
-                : undefined,
-          }
-        : undefined,
-    };
+    const sourceConfig = normalizeSourceConfig(sourceValue);
+    config.sources[sourceId] = sourceConfig;
   }
 
+  if (Array.isArray(value.sourceInstances)) {
+    for (const sourceValue of value.sourceInstances) {
+      if (
+        !isObject(sourceValue) ||
+        typeof sourceValue.connectorId !== "string"
+      ) {
+        continue;
+      }
+
+      if (!isKnownConnectorId(sourceValue.connectorId)) {
+        continue;
+      }
+
+      const id =
+        typeof sourceValue.id === "string" && sourceValue.id.trim().length > 0
+          ? sourceValue.id
+          : createSourceInstanceId(
+              sourceValue.connectorId,
+              config.sourceInstances.length,
+            );
+      config.sourceInstances.push({
+        ...normalizeSourceConfig(sourceValue),
+        connectorId: sourceValue.connectorId,
+        id,
+        name:
+          typeof sourceValue.name === "string" ? sourceValue.name : undefined,
+      });
+    }
+  }
+
+  if (config.sourceInstances.length === 0) {
+    for (const [connectorId, sourceConfig] of Object.entries(config.sources)) {
+      if (!isKnownConnectorId(connectorId) || !sourceConfig) {
+        continue;
+      }
+
+      config.sourceInstances.push({
+        ...sourceConfig,
+        connectorId,
+        id: connectorId,
+      });
+    }
+  }
+
+  if (!config.ingestionSchedule) {
+    config.ingestionSchedule = config.sourceInstances.find(
+      (sourceConfig) => sourceConfig.schedule,
+    )?.schedule;
+  }
+
+  config.sourceInstances = config.sourceInstances.map((sourceConfig) => {
+    const nextSourceConfig = { ...sourceConfig };
+    delete nextSourceConfig.schedule;
+    return nextSourceConfig;
+  });
+  config.sources = deriveLegacySources(config.sourceInstances);
+
   return config;
+}
+
+function normalizeSourceConfig(
+  value: Record<string, unknown>,
+): OnboardingSourceConfig {
+  return {
+    connectedAt:
+      typeof value.connectedAt === "string" ? value.connectedAt : undefined,
+    connectorConfig: isObject(value.connectorConfig)
+      ? value.connectorConfig
+      : undefined,
+    ingestionGoal:
+      typeof value.ingestionGoal === "string" ? value.ingestionGoal : undefined,
+    schedule: isObject(value.schedule)
+      ? normalizeSourceScheduleConfig(value.schedule)
+      : undefined,
+  };
+}
+
+function normalizeSourceScheduleConfig(
+  value: Record<string, unknown>,
+): OnboardingSourceScheduleConfig {
+  return {
+    description: typeof value.description === "string" ? value.description : "",
+    expression: typeof value.expression === "string" ? value.expression : "",
+    launchAgentPath:
+      typeof value.launchAgentPath === "string"
+        ? value.launchAgentPath
+        : undefined,
+    pausedAt: typeof value.pausedAt === "string" ? value.pausedAt : undefined,
+    updatedAt:
+      typeof value.updatedAt === "string"
+        ? value.updatedAt
+        : new Date(0).toISOString(),
+    warning: typeof value.warning === "string" ? value.warning : undefined,
+  };
+}
+
+function deriveLegacySources(
+  sourceInstances: OnboardingSourceInstanceConfig[],
+): OpenWikiOnboardingConfig["sources"] {
+  const sources: OpenWikiOnboardingConfig["sources"] = {};
+
+  for (const sourceInstance of sourceInstances) {
+    if (!sources[sourceInstance.connectorId]) {
+      sources[sourceInstance.connectorId] = {
+        connectedAt: sourceInstance.connectedAt,
+        connectorConfig: sourceInstance.connectorConfig,
+        ingestionGoal: sourceInstance.ingestionGoal,
+      };
+    }
+  }
+
+  return sources;
+}
+
+function createSourceInstanceId(
+  connectorId: ConnectorId,
+  index: number,
+): string {
+  return `${connectorId}-${index + 1}`;
 }
 
 function normalizePowerManagementConfig(

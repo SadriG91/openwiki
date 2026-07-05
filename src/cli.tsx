@@ -9,12 +9,15 @@ import {
 } from "./auth/configure.js";
 import { startNgrokTunnel } from "./auth/ngrok.js";
 import { formatAuthProviderList, runOAuthAuth } from "./auth/oauth.js";
+import { ensureCodeModeRepoSetup } from "./code-mode.js";
 import {
   helpContent,
   isDevelopmentMode,
   parseCommand,
   type CliCommand,
   type HelpRow,
+  type OpenWikiRunMode,
+  type OpenWikiRunModeSource,
 } from "./commands.js";
 import {
   InitSetup,
@@ -71,7 +74,7 @@ import {
   OPENWIKI_VERSION,
   type OpenWikiProvider,
 } from "./constants.js";
-import type { OpenWikiCommand } from "./agent/types.js";
+import type { OpenWikiCommand, OpenWikiOutputMode } from "./agent/types.js";
 
 type RunState =
   | { status: "idle" }
@@ -155,6 +158,10 @@ const OPENWIKI_LOGO_WIDTH = Math.max(
 function App({ command }: AppProps) {
   const app = useApp();
   const startupModelId = command.kind === "run" ? command.modelId : null;
+  const startupRunMode = command.kind === "run" ? command.mode : "brain";
+  const [runMode, setRunMode] = useState<OpenWikiRunMode>(startupRunMode);
+  const runtimeCwd = getRunModeCwd(runMode);
+  const runtimeOutputMode = getRunModeOutputMode(runMode);
   const startupProvider = resolveConfiguredProvider();
   const autoExitOnSuccess = shouldAutoExitStartupRun(command);
   const [sessionProvider, setSessionProvider] =
@@ -163,7 +170,8 @@ function App({ command }: AppProps) {
     startupModelId,
   );
   const activeRunId = useRef(0);
-  const sessionThreadId = useRef(createOpenWikiThreadId(openWikiLocalWikiDir));
+  const sessionThreadId = useRef(createOpenWikiThreadId(runtimeCwd));
+  const sessionThreadMode = useRef<OpenWikiRunMode>(runMode);
   const mountedRef = useRef(false);
   const nextLogId = useRef(1);
   const nextCompletedRunId = useRef(1);
@@ -189,7 +197,8 @@ function App({ command }: AppProps) {
     !command.dryRun &&
     process.stdin.isTTY &&
     runState.status === "idle" &&
-    needsCredentialSetup(sessionModelId);
+    (needsCredentialSetup(sessionModelId, runMode) ||
+      shouldPromptForStartupRunMode(command));
   const displayModelId = sessionModelId ?? startupModelId;
 
   function submitChatMessage(message: string) {
@@ -299,7 +308,7 @@ function App({ command }: AppProps) {
 
   function clearSession() {
     activeRunId.current += 1;
-    sessionThreadId.current = createOpenWikiThreadId(openWikiLocalWikiDir);
+    sessionThreadId.current = createOpenWikiThreadId(runtimeCwd);
     activeRunCredentialDiagnostics.current = undefined;
     activeRunLog.current = [];
     nextLogId.current = 1;
@@ -336,6 +345,15 @@ function App({ command }: AppProps) {
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (sessionThreadMode.current === runMode) {
+      return;
+    }
+
+    sessionThreadId.current = createOpenWikiThreadId(runtimeCwd);
+    sessionThreadMode.current = runMode;
+  }, [runMode, runtimeCwd]);
 
   useEffect(() => {
     if (command.kind === "help" || command.kind === "error") {
@@ -416,33 +434,41 @@ function App({ command }: AppProps) {
         });
     }
 
-    runOpenWikiAgent(resolvedCommand, openWikiLocalWikiDir, {
-      debug: isDebugMode(),
-      isFollowup: activeMessageIsFollowup,
-      modelId: sessionModelId,
-      outputMode: "local-wiki",
-      threadId: sessionThreadId.current,
-      userMessage: activeUserMessage,
-      onEvent: (event) => {
-        if (!mountedRef.current || activeRunId.current !== runId) {
-          return;
-        }
+    const setupPromise =
+      runMode === "code"
+        ? ensureCodeModeRepoSetup(runtimeCwd)
+        : Promise.resolve();
 
-        activeRunLog.current = appendRunLogEvent(
-          activeRunLog.current,
-          event,
-          nextLogId,
-        );
-        setRunState((currentState) =>
-          currentState.status === "running"
-            ? {
-                ...currentState,
-                log: activeRunLog.current,
-              }
-            : currentState,
-        );
-      },
-    })
+    setupPromise
+      .then(() =>
+        runOpenWikiAgent(resolvedCommand, runtimeCwd, {
+          debug: isDebugMode(),
+          isFollowup: activeMessageIsFollowup,
+          modelId: sessionModelId,
+          outputMode: runtimeOutputMode,
+          threadId: sessionThreadId.current,
+          userMessage: activeUserMessage,
+          onEvent: (event) => {
+            if (!mountedRef.current || activeRunId.current !== runId) {
+              return;
+            }
+
+            activeRunLog.current = appendRunLogEvent(
+              activeRunLog.current,
+              event,
+              nextLogId,
+            );
+            setRunState((currentState) =>
+              currentState.status === "running"
+                ? {
+                    ...currentState,
+                    log: activeRunLog.current,
+                  }
+                : currentState,
+            );
+          },
+        }),
+      )
       .then((result) => {
         if (!mountedRef.current || activeRunId.current !== runId) {
           return;
@@ -496,7 +522,10 @@ function App({ command }: AppProps) {
     activeMessageIsFollowup,
     activeUserMessage,
     resolvedCommand,
+    runMode,
     runState.status,
+    runtimeCwd,
+    runtimeOutputMode,
     sessionModelId,
     sessionProvider,
     shouldRunInteractiveCredentialSetup,
@@ -553,8 +582,17 @@ function App({ command }: AppProps) {
   if (shouldRunInteractiveCredentialSetup) {
     return (
       <InitSetup
+        allowModeSelection={shouldPromptForStartupRunMode(command)}
+        mode={command.mode}
         modelIdOverride={command.modelId}
         onComplete={(result) => {
+          if (result.mode !== runMode) {
+            const nextRuntimeCwd = getRunModeCwd(result.mode);
+            sessionThreadId.current = createOpenWikiThreadId(nextRuntimeCwd);
+            sessionThreadMode.current = result.mode;
+            setRunMode(result.mode);
+          }
+
           if (result.modelId) {
             setSessionModelId(result.modelId);
           }
@@ -1038,7 +1076,7 @@ function IngestionSummary({ result }: { result: OpenWikiIngestionResult }) {
     <Panel title="Source Runs">
       {result.results.map((sourceResult) => (
         <StatusLine
-          key={sourceResult.connectorId}
+          key={sourceResult.sourceInstanceId}
           label={sourceResult.displayName}
           tone={sourceResult.status === "error" ? "error" : "success"}
           value={`${sourceResult.status}; ${sourceResult.rawFiles.length} raw file(s)`}
@@ -3636,11 +3674,13 @@ function formatScheduleStatus(schedule: ConnectorScheduleStatus): string {
   const body = rows
     .map(([label, value]) => `  ${label.padEnd(labelWidth)} : ${value}`)
     .join("\n");
-  const divider = "-".repeat(Math.max(18, schedule.connectorId.length + 12));
+  const scheduleLabel = schedule.displayName ?? schedule.sourceInstanceId;
+  const divider = "-".repeat(Math.max(18, scheduleLabel.length + 10));
 
   return [
     divider,
-    `Connector : ${schedule.connectorId}`,
+    `Source : ${scheduleLabel}`,
+    ...(schedule.connectorId ? [`Connector : ${schedule.connectorId}`] : []),
     divider,
     body,
     "",
@@ -3654,6 +3694,7 @@ async function runIngestCommand(
     const result = await runOpenWikiIngestion(process.cwd(), {
       debug: isDebugMode(),
       modelId: command.modelId,
+      scheduledOnly: command.scheduledOnly,
       target: command.target,
       onEvent: (event) => {
         if (event.type === "text" && event.source !== "subgraph") {
@@ -3776,6 +3817,14 @@ function shouldPrintStartupError(
   );
 }
 
+function getRunModeCwd(mode: OpenWikiRunMode): string {
+  return mode === "code" ? process.cwd() : openWikiLocalWikiDir;
+}
+
+function getRunModeOutputMode(mode: OpenWikiRunMode): OpenWikiOutputMode {
+  return mode === "code" ? "repository" : "local-wiki";
+}
+
 function shouldAutoExitStartupRun(command: CliCommand): boolean {
   return (
     command.kind === "run" &&
@@ -3786,18 +3835,39 @@ function shouldAutoExitStartupRun(command: CliCommand): boolean {
   );
 }
 
+function shouldPromptForStartupRunMode(
+  command: CliCommand,
+): command is Extract<
+  CliCommand,
+  { kind: "run"; modeSource: OpenWikiRunModeSource }
+> {
+  return (
+    command.kind === "run" &&
+    command.command === "init" &&
+    command.modeSource === "default" &&
+    command.shouldStart
+  );
+}
+
 async function runPrintCommand(
   command: Extract<CliCommand, { kind: "run" }>,
 ): Promise<void> {
   try {
     const output: string[] = [];
 
-    await runOpenWikiAgent(command.command, openWikiLocalWikiDir, {
+    const runtimeCwd = getRunModeCwd(command.mode);
+    const runtimeOutputMode = getRunModeOutputMode(command.mode);
+
+    if (command.mode === "code") {
+      await ensureCodeModeRepoSetup(runtimeCwd);
+    }
+
+    await runOpenWikiAgent(command.command, runtimeCwd, {
       debug: isDebugMode(),
       isFollowup: command.command === "chat",
       modelId: command.modelId,
-      outputMode: "local-wiki",
-      threadId: createOpenWikiThreadId(openWikiLocalWikiDir),
+      outputMode: runtimeOutputMode,
+      threadId: createOpenWikiThreadId(runtimeCwd),
       userMessage: command.userMessage,
       onEvent: (event) => {
         if (event.type === "text" && event.source !== "subgraph") {
