@@ -332,11 +332,13 @@ Instructions:
 
 function createSourceSynthesisPolicy(connectorId: ConnectorId): string {
   return `
-- Synthesize into canonical cross-source files when relevant: /open-questions.md for unresolved decisions and blockers, /themes.md for recurring trends, /commitments.md for concrete tasks/follow-ups, /quickstart.md for high-level navigation/current status, and /sources/${connectorId}.md for compact source evidence.
+- Synthesize into canonical cross-source files when relevant: /open-questions.md for unresolved memory/wiki questions, /themes.md for recurring trends, /commitments.md for work tasks/follow-ups, /personal-logistics.md for non-work life-admin items, /quickstart.md for high-level navigation/current status, and /sources/${connectorId}.md for compact source evidence.
 - Apply confidence labels: confirmed, source-backed, watchlist, or saved-context. Keep weak/watchlist items out of /quickstart.md unless they materially affect current status.
 - Deduplicate with stable topic keys. Update existing themes, open questions, and commitments instead of repeating the same fact in several source pages.
 - If /open-questions.md exists, read it at the start so known open questions shape evidence review. At the end, return to it to add real newly discovered questions and move answered questions from Active to Answered.
+- Keep /open-questions.md for uncertainty about the user's core memory or wiki quality, not unresolved questions that merely appear inside source documents. Group similar questions under one topic key.
 - Keep /open-questions.md concise: Active entries use Owner, Seen, Evidence, and optional Notes; Answered entries use Evidence linking to the answer and Answered date; Stale entries use Why and Last seen.
+- Include Owner in /commitments.md entries when inferable: me, team, other:<name>, or unknown.
 ${createConnectorSynthesisGuidance(connectorId)}
 `.trim();
 }
@@ -348,12 +350,12 @@ function createConnectorSynthesisGuidance(connectorId: ConnectorId): string {
 - For Gmail evidence, classify each candidate item before writing: action_required, scheduled_commitment, decision_or_approval, direct_request, important_update, people_or_org_signal, project_context, security_or_account_notice, newsletter_or_digest, transaction_or_receipt, promotion_or_marketing, personal_logistics, or noise.
 - Also assign priority high, medium, low, or ignore, and durability ephemeral, durable, or recurring. Write only high/medium durable items, action items, scheduled commitments, approvals, and recurring patterns.
 - Keep receipts, promotions, generic newsletters, routine security/account notices, and noise out of the wiki unless actionable, recurrent, or explicitly requested.
-- Route action items and follow-ups to /commitments.md, recurring cross-source patterns to /themes.md, unresolved requests to /open-questions.md, and keep /sources/google.md concise.`;
+- Route work action items and follow-ups to /commitments.md with Owner when inferable, personal logistics to /personal-logistics.md, recurring cross-source patterns to /themes.md, unresolved memory/wiki uncertainty to /open-questions.md, and keep /sources/google.md concise.`;
     case "notion":
       return `
 - Prefer Notion pages edited in the ingestion window, pages where the user is mentioned/tagged/assigned, pages where the user appears in people properties, and pages whose title/body indicate decisions, follow-ups, open questions, blockers, owners, customers, meetings, or plans.
 - Use Notion metadata such as last_edited_time, last_edited_by, object IDs, page IDs, cursors, and content hashes when available.
-- Do not create or grow one broad Notion digest. Route durable findings to /open-questions.md, /themes.md, and /commitments.md; keep /sources/notion.md as a compact evidence index.`;
+- Do not create or grow one broad Notion digest. Route durable findings to /themes.md and /commitments.md; keep /sources/notion.md as a compact evidence index. Do not promote Notion doc open questions into /open-questions.md unless they are explicitly owned by the user or reveal uncertainty in the user's core memory/wiki.`;
     case "x":
       return `
 - Treat bookmarks and liked/saved social content as saved-context unless there is explicit evidence it is a commitment or active project.
@@ -368,7 +370,7 @@ function createConnectorSynthesisGuidance(connectorId: ConnectorId): string {
 - Merge recurring search findings into existing /themes.md topic keys instead of creating one-off source-page summaries.`;
     case "slack":
       return `
-- Route direct requests, mentions, deadlines, approvals, and follow-ups to /commitments.md or /open-questions.md.
+- Route direct work requests, mentions, deadlines, approvals, and follow-ups to /commitments.md with Owner when inferable. Use /open-questions.md only for memory/wiki uncertainty that would impair future assistance.
 - Keep ordinary chatter, status noise, and bounded-fallback uncertainty out of high-level wiki pages unless it is durable or directly actionable.`;
     case "git-repo":
       return `
