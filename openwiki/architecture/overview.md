@@ -42,11 +42,11 @@ Model creation branches by provider in `src/agent/index.ts` (`createModel`):
 
 - **anthropic** → `ChatAnthropic` with the Anthropic API key.
 - **openrouter** → `ChatOpenRouter` with `route: "fallback"` and a list of fallback models.
-- **baseten / fireworks / openai** → `ChatOpenAI` with the provider's API key and optional custom `baseURL` from `PROVIDER_CONFIGS`.
+- **baseten / fireworks / openai / openai-compatible** → `ChatOpenAI` with the provider's API key and optional custom `baseURL` from `PROVIDER_CONFIGS`. The `openai-compatible` provider requires a user-supplied base URL (`OPENAI_COMPATIBLE_BASE_URL`).
 
 ### DeepAgents backend
 
-The agent uses a DeepAgents `LocalShellBackend` rooted at the repository, configured with `virtualMode: true`, `maxOutputBytes: 100_000`, and a 120 second timeout. A SQLite checkpointer (`~/.openwiki/openwiki.sqlite`) persists conversation threads keyed by a hash of the repository path.
+The agent uses a DeepAgents `LocalShellBackend` rooted at the repository, configured with `virtualMode: true`, `maxOutputBytes: 100_000`, and a 120 second timeout. A SQLite checkpointer (`~/.openwiki/openwiki.sqlite`) persists conversation threads keyed by a thread ID derived from a hash of the repository path plus a per-run suffix, so each run gets a unique thread.
 
 ### Content snapshot and metadata writes
 
