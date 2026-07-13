@@ -39,6 +39,7 @@ import type {
   OpenWikiRunResult,
 } from "./types.js";
 import {
+  ANTHROPIC_API_KEY_ENV_KEY,
   ANTHROPIC_BASE_URL_ENV_KEY,
   BEDROCK_AWS_REGION_ENV_KEY,
   getDefaultModelId,
@@ -510,11 +511,7 @@ function createModel(
 
   if (provider === "vertex") {
     return new ChatAnthropic(modelId, {
-      createClient: () =>
-        new AnthropicVertex({
-          projectId: process.env[GOOGLE_CLOUD_PROJECT_ENV_KEY],
-          region: resolveProviderLocation(provider),
-        }),
+      createClient: () => createVertexClient(provider),
     });
   }
 
@@ -635,6 +632,35 @@ function getProviderApiKey(provider: OpenWikiProvider): string | undefined {
   const apiKeyEnvKey = getProviderApiKeyEnvKey(provider);
 
   return apiKeyEnvKey ? process.env[apiKeyEnvKey] : undefined;
+}
+
+/**
+ * Constructs the AnthropicVertex client with stray Anthropic credentials
+ * masked: the underlying Anthropic SDK captures ANTHROPIC_API_KEY and
+ * ANTHROPIC_AUTH_TOKEN from the environment at construction time and sends
+ * them as request credentials, displacing the Google OAuth token (observed
+ * as an authentication error when ANTHROPIC_AUTH_TOKEN is set — e.g. left
+ * over from a previous anthropic-provider setup).
+ */
+function createVertexClient(provider: OpenWikiProvider): AnthropicVertex {
+  const savedApiKey = process.env[ANTHROPIC_API_KEY_ENV_KEY];
+  const savedAuthToken = process.env.ANTHROPIC_AUTH_TOKEN;
+  delete process.env[ANTHROPIC_API_KEY_ENV_KEY];
+  delete process.env.ANTHROPIC_AUTH_TOKEN;
+
+  try {
+    return new AnthropicVertex({
+      projectId: process.env[GOOGLE_CLOUD_PROJECT_ENV_KEY],
+      region: resolveProviderLocation(provider),
+    });
+  } finally {
+    if (savedApiKey !== undefined) {
+      process.env[ANTHROPIC_API_KEY_ENV_KEY] = savedApiKey;
+    }
+    if (savedAuthToken !== undefined) {
+      process.env.ANTHROPIC_AUTH_TOKEN = savedAuthToken;
+    }
+  }
 }
 
 function parseStreamEvent(chunk: unknown): OpenWikiRunEvent | null {
