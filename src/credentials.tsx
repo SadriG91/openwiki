@@ -392,10 +392,7 @@ export function needsCredentialSetup(
     needsRegionStep(provider) ||
     (modelIdOverride === null &&
       process.env[OPENWIKI_MODEL_ID_ENV_KEY] === undefined) ||
-    // The LangSmith key is optional: skipping the prompt persists an empty
-    // value, so only a fully unanswered (undefined) key should reopen setup.
-    // Treating "" as unanswered made the wizard nag after every run.
-    process.env.LANGSMITH_API_KEY === undefined;
+    needsLangSmithStep();
 
   if (needsCredentials) {
     return true;
@@ -570,6 +567,23 @@ function needsRegionStep(provider: OpenWikiProvider): boolean {
   }
 
   return !isRegionConfigured(provider);
+}
+
+/**
+ * Whether the optional LangSmith tracing step still needs to be shown.
+ *
+ * The step is optional, so "answered" must include skipping it. Skipping does
+ * not persist `LANGSMITH_API_KEY` — `saveOpenWikiEnv` strips empty values, so
+ * the key is simply absent afterwards. What the step always records instead is
+ * `LANGCHAIN_TRACING_V2` (`"false"` on skip, `"true"` when a key is entered),
+ * which survives because it is non-empty. So the step is unanswered only when
+ * neither a key is present (e.g. from a shell export) nor a tracing decision
+ * has been recorded.
+ */
+export function needsLangSmithStep(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return !env.LANGSMITH_API_KEY && env.LANGCHAIN_TRACING_V2 === undefined;
 }
 
 function isRegionConfigured(provider: OpenWikiProvider): boolean {
@@ -2682,10 +2696,7 @@ export function InitSetup({
     needsRegionStep(provider) ||
     (modelIdOverride === null &&
       process.env[OPENWIKI_MODEL_ID_ENV_KEY] === undefined) ||
-    // The LangSmith key is optional: skipping the prompt persists an empty
-    // value, so only a fully unanswered (undefined) key should reopen setup.
-    // Treating "" as unanswered made the wizard nag after every run.
-    process.env.LANGSMITH_API_KEY === undefined;
+    needsLangSmithStep();
   const apiKeyEnvKey = getProviderApiKeyEnvKey(provider);
   const projectEnvKey = getProviderProjectEnvKey(provider);
   const locationEnvKey = getProviderLocationEnvKey(provider);
