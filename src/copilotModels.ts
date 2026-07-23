@@ -5,6 +5,7 @@ import {
   setDynamicProviderModelOptions,
 } from "./constants.js";
 import type { ProviderModelOption } from "./constants.js";
+import { exchangeGitHubTokenForCopilotCredentials } from "./copilotAuth.js";
 
 const MODELS_FETCH_TIMEOUT_MS = 5_000;
 
@@ -79,8 +80,12 @@ export function orderCopilotModelOptions(
 
 async function fetchCopilotModelOptions(
   apiKey: string,
+  exchangedBaseURL?: string,
 ): Promise<ProviderModelOption[]> {
-  const baseURL = resolveProviderBaseUrl("copilot");
+  const baseURL =
+    process.env.COPILOT_BASE_URL?.trim() ||
+    exchangedBaseURL ||
+    resolveProviderBaseUrl("copilot");
 
   if (!baseURL) {
     return [];
@@ -122,8 +127,17 @@ export function primeCopilotModelOptions(
       return [];
     }
 
+    let credentials;
+
+    try {
+      credentials = await exchangeGitHubTokenForCopilotCredentials(token);
+    } catch {
+      primePromise = null;
+      return [];
+    }
+
     const options = orderCopilotModelOptions(
-      await fetchCopilotModelOptions(token),
+      await fetchCopilotModelOptions(credentials.apiKey, credentials.baseURL),
       getProviderConfig("copilot").modelOptions[0]?.id,
     );
 

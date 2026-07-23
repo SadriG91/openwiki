@@ -16,6 +16,10 @@ import {
 } from "deepagents";
 import { createOpenWikiConnectorTools } from "../connectors/tools.js";
 import {
+  exchangeGitHubTokenForCopilotCredentials,
+  type CopilotApiCredentials,
+} from "../copilotAuth.js";
+import {
   DEBUG_ENV_KEYS,
   loadOpenWikiEnv,
   openWikiEnvDir,
@@ -181,6 +185,16 @@ export async function runOpenWikiAgent(
       emitDebug(options, "chatgpt.token=fresh");
     }
 
+    const copilotCredentials =
+      provider === "copilot"
+        ? await exchangeGitHubTokenForCopilotCredentials(
+            process.env[COPILOT_API_KEY_ENV_KEY] ?? "",
+          )
+        : undefined;
+    if (copilotCredentials) {
+      emitDebug(options, "copilot.token=exchanged");
+    }
+
     modelId = resolveModelId(options, provider);
     emitDebug(options, `model=${modelId}`);
     const providerRetryAttempts = resolveProviderRetryAttempts();
@@ -193,6 +207,7 @@ export async function runOpenWikiAgent(
       provider,
       modelId,
       providerRetryAttempts,
+      copilotCredentials,
     );
 
     await recordRunSafe(command, options, {
@@ -223,6 +238,7 @@ async function runOpenWikiAgentCore(
   provider: OpenWikiProvider,
   modelId: string,
   providerRetryAttempts: number,
+  copilotCredentials?: CopilotApiCredentials,
 ): Promise<OpenWikiRunResult> {
   const outputMode = options.outputMode ?? "local-wiki";
   const context = await createRunContext(command, cwd, outputMode);
@@ -232,7 +248,12 @@ async function runOpenWikiAgentCore(
       ? null
       : await createOpenWikiContentSnapshot(cwd, outputMode);
   emitDebug(options, "openwiki.snapshot=created");
-  const model = createModel(provider, modelId, providerRetryAttempts);
+  const model = createModel(
+    provider,
+    modelId,
+    providerRetryAttempts,
+    copilotCredentials,
+  );
   emitDebug(options, `model.provider=${provider}`);
   emitDebug(options, "model=initialized");
   const threadId = options.threadId ?? createThreadId(cwd, createRunThreadId());
@@ -639,6 +660,7 @@ export function createModel(
   provider: OpenWikiProvider,
   modelId: string,
   providerRetryAttempts: number,
+  copilotCredentials?: CopilotApiCredentials,
 ) {
   const retryOptions = { maxRetries: providerRetryAttempts };
 
@@ -753,25 +775,23 @@ export function createModel(
   const baseURL = resolveProviderBaseUrl(provider);
 
   if (provider === "copilot") {
-    const apiKey = process.env[COPILOT_API_KEY_ENV_KEY] ?? "";
-
-    // The Copilot API rejects Personal Access Tokens for third-party
-    // integrations; only GitHub OAuth tokens work here.
-    if (/^(ghp_|github_pat_)/u.test(apiKey)) {
-      throw new Error(
-        `The GitHub Copilot API does not accept Personal Access Tokens. Set ${COPILOT_API_KEY_ENV_KEY} to a GitHub OAuth token from a Copilot-enabled account (for example the output of \`gh auth token\`).`,
-      );
-    }
+    const apiKey =
+      copilotCredentials?.apiKey ?? process.env[COPILOT_API_KEY_ENV_KEY] ?? "";
+    const copilotBaseURL =
+      process.env[COPILOT_BASE_URL_ENV_KEY]?.trim() ||
+      copilotCredentials?.baseURL ||
+      baseURL;
 
     return new ChatOpenAI({
       apiKey,
       configuration: {
-        baseURL,
+        baseURL: copilotBaseURL,
       },
       model: modelId,
       // The Copilot API serves GPT-5-family models only through the
       // Responses API and other models only through chat completions.
       useResponsesApi: /^gpt-5/u.test(modelId),
+      ...retryOptions,
     });
   }
 
