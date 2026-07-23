@@ -989,6 +989,9 @@ export function InitSetup({
 
       if (token) {
         setCopilotAuth({ kind: "detected", token });
+        // Start fetching the live catalog now, while the user is still on
+        // the credential step, so the model picker opens already populated.
+        void primeCopilotModelOptions(token);
         return;
       }
 
@@ -1047,6 +1050,10 @@ export function InitSetup({
       }
 
       const token = await detectGhCliToken();
+
+      if (token) {
+        void primeCopilotModelOptions(token);
+      }
 
       setCopilotAuth(
         token

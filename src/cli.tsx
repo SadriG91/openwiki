@@ -277,6 +277,14 @@ function App({ command }: AppProps) {
   const [sessionModelId, setSessionModelId] = useState<string | null>(
     startupModelId,
   );
+
+  // When the session starts on Copilot, fetch the live catalog in the
+  // background right away so the /model menu opens already populated.
+  useEffect(() => {
+    if (sessionProvider === "copilot") {
+      void primeCopilotModelOptions();
+    }
+  }, [sessionProvider]);
   const activeRunId = useRef(0);
   const sessionThreadId = useRef(createOpenWikiThreadId(runtimeCwd));
   const sessionThreadMode = useRef<OpenWikiRunMode>(runMode);
@@ -465,6 +473,12 @@ function App({ command }: AppProps) {
   }
 
   async function selectProvider(provider: OpenWikiProvider) {
+    if (provider === "copilot") {
+      // Start fetching the live catalog now so the /model menu is already
+      // populated when it opens; the menu itself re-fetches as a fallback.
+      void primeCopilotModelOptions();
+    }
+
     const modelId =
       getProviderModelOptions(provider).length > 0
         ? getDefaultModelId(provider)
@@ -2705,6 +2719,10 @@ function getCurrentProviderOptionIndex(
   return matchingIndex === -1 ? 0 : matchingIndex;
 }
 
+function normalizeModelDisplayText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/gu, "");
+}
+
 function getModelMenuOptions(
   currentModelId: string,
   currentProvider: OpenWikiProvider,
@@ -2724,9 +2742,18 @@ function getModelMenuOptions(
         (model) => model.id === modelId,
       );
 
+      // Skip the id suffix when the label is just a prettified form of the
+      // id (e.g. Copilot's "GPT-5.5" vs "gpt-5.5"), which would render as a
+      // stuttering "GPT-5.5 gpt-5.5".
+      const labelRepeatsId =
+        preset !== undefined &&
+        normalizeModelDisplayText(preset.label) ===
+          normalizeModelDisplayText(modelId);
+
       return {
         kind: "model" as const,
-        label: preset ? `${preset.label} ${modelId}` : modelId,
+        label:
+          preset && !labelRepeatsId ? `${preset.label} ${modelId}` : modelId,
         modelId,
       };
     }),
