@@ -392,7 +392,10 @@ export function needsCredentialSetup(
     needsRegionStep(provider) ||
     (modelIdOverride === null &&
       process.env[OPENWIKI_MODEL_ID_ENV_KEY] === undefined) ||
-    !process.env.LANGSMITH_API_KEY;
+    // The LangSmith key is optional: skipping the prompt persists an empty
+    // value, so only a fully unanswered (undefined) key should reopen setup.
+    // Treating "" as unanswered made the wizard nag after every run.
+    process.env.LANGSMITH_API_KEY === undefined;
 
   if (needsCredentials) {
     return true;
@@ -2679,7 +2682,10 @@ export function InitSetup({
     needsRegionStep(provider) ||
     (modelIdOverride === null &&
       process.env[OPENWIKI_MODEL_ID_ENV_KEY] === undefined) ||
-    !process.env.LANGSMITH_API_KEY;
+    // The LangSmith key is optional: skipping the prompt persists an empty
+    // value, so only a fully unanswered (undefined) key should reopen setup.
+    // Treating "" as unanswered made the wizard nag after every run.
+    process.env.LANGSMITH_API_KEY === undefined;
   const apiKeyEnvKey = getProviderApiKeyEnvKey(provider);
   const projectEnvKey = getProviderProjectEnvKey(provider);
   const locationEnvKey = getProviderLocationEnvKey(provider);
