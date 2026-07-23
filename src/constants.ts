@@ -576,10 +576,36 @@ function isChatCompletionsEndpointUrl(value: string): boolean {
   }
 }
 
+/**
+ * Runtime-discovered model options, keyed by provider. Some catalogs are
+ * account-specific (GitHub Copilot's depends on the subscription and org
+ * policy), so a live fetch can replace the static presets for the session.
+ * Setting an empty list clears the override.
+ */
+const dynamicProviderModelOptions = new Map<
+  OpenWikiProvider,
+  ProviderModelOption[]
+>();
+
+export function setDynamicProviderModelOptions(
+  provider: OpenWikiProvider,
+  options: ProviderModelOption[],
+): void {
+  if (options.length === 0) {
+    dynamicProviderModelOptions.delete(provider);
+    return;
+  }
+
+  dynamicProviderModelOptions.set(provider, options);
+}
+
 export function getProviderModelOptions(
   provider: OpenWikiProvider,
 ): ProviderModelOption[] {
-  return getProviderConfig(provider).modelOptions;
+  return (
+    dynamicProviderModelOptions.get(provider) ??
+    getProviderConfig(provider).modelOptions
+  );
 }
 
 export function getDefaultModelId(provider: OpenWikiProvider): string {

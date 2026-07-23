@@ -83,6 +83,7 @@ import {
   OPENWIKI_VERSION,
   type OpenWikiProvider,
 } from "./constants.js";
+import { primeCopilotModelOptions } from "./copilotModels.js";
 import type { OpenWikiCommand, OpenWikiOutputMode } from "./agent/types.js";
 import {
   firstRunNoticePending,
@@ -1755,6 +1756,40 @@ function ChatInput({
       ),
     );
   }, [currentModelId, currentProvider, input, secretInputMode]);
+
+  // When the model menu opens for Copilot, replace the static presets with
+  // the live catalog (subscription- and org-policy-specific). Re-issuing the
+  // menu state re-renders the menu once the fetch lands; on failure the
+  // presets simply stay.
+  useEffect(() => {
+    if (menuState.kind !== "model" || currentProvider !== "copilot") {
+      return;
+    }
+
+    let cancelled = false;
+
+    void primeCopilotModelOptions().then((options) => {
+      if (cancelled || options.length === 0) {
+        return;
+      }
+
+      setMenuState((currentState) =>
+        currentState.kind === "model"
+          ? {
+              kind: "model",
+              selectedIndex: clampMenuIndex(
+                currentState.selectedIndex,
+                getModelMenuOptions(currentModelId, currentProvider).length,
+              ),
+            }
+          : currentState,
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [menuState.kind, currentModelId, currentProvider]);
 
   useInput((inputValue, key) => {
     if (isSaving) {

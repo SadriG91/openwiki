@@ -57,6 +57,7 @@ import {
   isGhCliAvailable,
   runGhAuthLogin,
 } from "./copilotAuth.js";
+import { primeCopilotModelOptions } from "./copilotModels.js";
 import { getConnectorConfigPath } from "./openwiki-home.js";
 import {
   getSavedEnvValue,
@@ -745,6 +746,7 @@ export function InitSetup({
     kind: "idle",
   });
   const copilotProbeStarted = useRef(false);
+  const [, setModelCatalogVersion] = useState(0);
   const { setRawMode } = useStdin();
   const [isAuthRunning, setIsAuthRunning] = useState(false);
   const [oauthTokens, setOauthTokens] = useState<CodexTokens | null>(null);
@@ -1003,6 +1005,34 @@ export function InitSetup({
       cancelled = true;
     };
   }, [step, provider]);
+
+  // On the Copilot model step, swap the static presets for the live catalog
+  // (it is subscription- and org-policy-specific). The menu re-renders when
+  // the fetch lands; on failure the presets simply stay.
+  useEffect(() => {
+    if (step !== "model" || provider !== "copilot") {
+      return;
+    }
+
+    let cancelled = false;
+    const token =
+      apiKey ?? (copilotAuth.kind === "detected" ? copilotAuth.token : null);
+
+    void primeCopilotModelOptions(token ?? undefined).then((options) => {
+      if (cancelled || options.length === 0) {
+        return;
+      }
+
+      setModelCatalogVersion((version) => version + 1);
+      setModelSelectionIndex((index) =>
+        Math.min(index, getModelSelectionOptions(provider).length - 1),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, provider, apiKey, copilotAuth]);
 
   async function launchGhAuthLogin() {
     setCopilotAuth({ kind: "logging-in" });
@@ -1682,8 +1712,8 @@ export function InitSetup({
         return;
       }
 
-      if (trimmedInput.length > 0) {
-        setApiKey(trimmedInput);
+      if (nextApiKey !== null) {
+        setApiKey(nextApiKey);
       }
       setInput("");
       const nextStep =
