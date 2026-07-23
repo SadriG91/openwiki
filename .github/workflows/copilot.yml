@@ -77,9 +77,6 @@ jobs:
   live-smoke:
     name: Live API smoke test
     if: github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-      copilot-requests: write
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -104,10 +101,15 @@ jobs:
 
       - name: Run openwiki with GitHub Copilot
         env:
-          COPILOT_API_KEY: ${{ github.token }}
+          COPILOT_API_KEY: ${{ secrets.COPILOT_API_KEY }}
           OPENWIKI_PROVIDER: copilot
           MODELS_INPUT: ${{ inputs.models }}
         run: |
+          if [ -z "$COPILOT_API_KEY" ]; then
+            echo "COPILOT_API_KEY secret is not set; skipping."
+            exit 0
+          fi
+
           if [ -n "$MODELS_INPUT" ]; then
             models="$MODELS_INPUT"
           else
