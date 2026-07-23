@@ -48,7 +48,7 @@ For non-chat runs, the agent receives a `RunContext` that includes last-update m
 The agent runtime resolves the provider via `resolveConfiguredProvider()` in `src/constants.ts`:
 
 1. If `OPENWIKI_PROVIDER` is set and valid, use it.
-2. Otherwise, use the first available provider API key in this order: OpenAI, OpenAI-compatible, OpenRouter, Anthropic, Baseten, Fireworks, Nebius, NVIDIA, then Bedrock.
+2. Otherwise, use the first available provider API key in this order: OpenAI, OpenAI-compatible, OpenRouter, Anthropic, Baseten, Fireworks, Nebius, NVIDIA, then Bedrock. (Copilot is not part of this fallback chain — it must be selected explicitly via `OPENWIKI_PROVIDER`.)
 3. Otherwise, fall back to `DEFAULT_PROVIDER` (`openai`) and its default model (`gpt-5.6-terra`).
 
 Model creation branches by provider in `src/agent/index.ts` (`createModel`):
@@ -114,6 +114,24 @@ The current design reflects a documentation product rather than a general-purpos
 - `src/agent/index.ts`
 - `src/agent/prompt.ts`
 - `src/agent/utils.ts`
+- `src/agent/types.ts`
+- `src/agent/docs-only-backend.ts`
+- `src/agent/openai-chatgpt-oauth.ts`
+- `src/auth/oauth.ts`
+- `src/auth/providers.ts`
+- `src/auth/configure.ts`
+- `src/auth/ngrok.ts`
+- `src/auth/tokens.ts`
+- `src/auth/types.ts`
+- `src/connectors/registry.ts`
+- `src/connectors/tools.ts`
+- `src/connectors/types.ts`
+- `src/ingestion.ts`
+- `src/code-mode.ts`
+- `src/constants.ts`
+- `package.json`
+- Git evidence: commits `ceded10`, `f89b05d`, `fd3a702`, `8278c36`, `0fa1430`
+rc/agent/utils.ts`
 - `src/agent/types.ts`
 - `src/agent/docs-only-backend.ts`
 - `src/agent/openai-chatgpt-oauth.ts`

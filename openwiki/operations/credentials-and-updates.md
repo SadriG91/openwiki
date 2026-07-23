@@ -40,7 +40,7 @@ The file stores provider configuration and API keys:
 - Provider API keys: `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`, `GEMINI_API_KEY`, `NEBIUS_API_KEY`
 - ChatGPT OAuth tokens (for the `openai-chatgpt` provider): `OPENAI_CHATGPT_ACCESS_TOKEN`, `OPENAI_CHATGPT_REFRESH_TOKEN`, `OPENAI_CHATGPT_EXPIRES_AT`, `OPENAI_CHATGPT_ACCOUNT_ID`, `OPENAI_CHATGPT_EMAIL`, `OPENAI_CHATGPT_PLAN`
 - Connector OAuth credentials: `OPENWIKI_GMAIL_ACCESS_TOKEN`, `OPENWIKI_GMAIL_REFRESH_TOKEN`, `OPENWIKI_GOOGLE_CLIENT_ID`, `OPENWIKI_GOOGLE_CLIENT_SECRET`, `OPENWIKI_NOTION_MCP_ACCESS_TOKEN`, `OPENWIKI_NOTION_MCP_CLIENT_ID`, `OPENWIKI_NOTION_MCP_REFRESH_TOKEN`, `OPENWIKI_SLACK_USER_TOKEN`, `OPENWIKI_SLACK_CLIENT_ID`, `OPENWIKI_SLACK_CLIENT_SECRET`, `OPENWIKI_X_ACCESS_TOKEN`, `OPENWIKI_X_CLIENT_ID`, `OPENWIKI_X_CLIENT_SECRET`, `OPENWIKI_X_REFRESH_TOKEN`
-- Base URLs: `ANTHROPIC_BASE_URL` (optional — routes the anthropic provider at an Anthropic-compatible endpoint other than the default API), `OPENAI_COMPATIBLE_BASE_URL` (required by the openai-compatible provider, which has no default endpoint), and `OPENAI_BASE_URL` (optional — overrides the openai provider's default endpoint)
+- Base URLs: `ANTHROPIC_BASE_URL` (optional — routes the anthropic provider at an Anthropic-compatible endpoint other than the default API), `OPENAI_COMPATIBLE_BASE_URL` (required by the openai-compatible provider, which has no default endpoint), `OPENAI_BASE_URL` (optional — overrides the openai provider's default endpoint), and `COPILOT_BASE_URL` (optional — overrides the copilot provider's default `https://api.githubcopilot.com` endpoint)
 - AWS Bedrock credentials: `BEDROCK_AWS_ACCESS_KEY_ID`, `BEDROCK_AWS_SECRET_ACCESS_KEY`, `BEDROCK_AWS_REGION` (all required by the bedrock provider)
 - Connector API keys: `TAVILY_API_KEY` for Web Search
 - Google Cloud settings for the gemini-enterprise provider: `GOOGLE_CLOUD_PROJECT` (required to run gemini-enterprise), `GOOGLE_CLOUD_LOCATION` (optional, defaults to `global`), and `GOOGLE_APPLICATION_CREDENTIALS` (optional service-account key file path; never prompted for — Google Application Default Credentials handle auth)
@@ -241,6 +241,28 @@ Bitbucket users should configure repository variables for the model provider key
 - Scheduled automation depends on the same CLI entrypoint as local users, so workflow changes should be validated against `package.json` and the CLI help text.
 - When adding a provider, update `managedEnvKeys` in `src/env.ts` so the env file is formatted correctly and diagnostics cover the new key. Providers without an API key (like gemini-enterprise) declare their required env keys in `PROVIDER_CONFIGS` (e.g. `projectEnvKey`) and are gated by `getMissingProviderEnvKey()`. Providers with a paired secret and region (like bedrock) use `secretKeyEnvKey` and `regionEnvKey` with `requiresRegion: true`.
 - The content-snapshot check means CI runs that produce no changes will not update `.last-update.json` or open a PR with metadata-only changes.
+
+## Source map
+
+- `src/env.ts`
+- `src/credentials.tsx`
+- `src/constants.ts`
+- `src/agent/utils.ts`
+- `src/agent/index.ts`
+- `src/agent/openai-chatgpt-oauth.ts`
+- `src/auth/oauth.ts`
+- `src/auth/providers.ts`
+- `src/auth/configure.ts`
+- `src/auth/tokens.ts`
+- `src/onboarding.ts`
+- `src/schedules.ts`
+- `src/code-mode.ts`
+- `examples/openwiki-update.yml`
+- `examples/openwiki-update.gitlab-ci.yml`
+- `examples/openwiki-update.bitbucket-pipelines.yml`
+- `README.md`
+- Git evidence: commits `ceded10`, `f89b05d`, `8278c36`, `0fa1430`
+ means CI runs that produce no changes will not update `.last-update.json` or open a PR with metadata-only changes.
 
 ## Source map
 

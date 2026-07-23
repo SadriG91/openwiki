@@ -64,8 +64,8 @@ The UI persists provider and model selection back to `~/.openwiki/.env` through 
 
 The first interactive run can prompt for:
 
-- a **provider** (`OPENWIKI_PROVIDER`) — openai, openai-chatgpt, openrouter, anthropic, gemini, gemini-enterprise, bedrock, baseten, fireworks, nebius, nvidia, or openai-compatible,
-- the **provider API key** (e.g. `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`, `GEMINI_API_KEY`, `NEBIUS_API_KEY`) — skipped for the gemini-enterprise provider, which instead prompts for a **GCP project** (`GOOGLE_CLOUD_PROJECT`, required) and a **GCP location** (`GOOGLE_CLOUD_LOCATION`, optional, defaults to `global`), and skipped for the bedrock provider, which instead prompts for AWS access key ID, secret access key, and region,
+- a **provider** (`OPENWIKI_PROVIDER`) — openai, openai-chatgpt, copilot, openrouter, anthropic, gemini, gemini-enterprise, bedrock, baseten, fireworks, nebius, nvidia, or openai-compatible,
+- the **provider API key** (e.g. `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `OPENAI_COMPATIBLE_API_KEY`, `ANTHROPIC_API_KEY`, `BASETEN_API_KEY`, `FIREWORKS_API_KEY`, `GEMINI_API_KEY`, `NEBIUS_API_KEY`, `COPILOT_API_KEY`) — skipped for the gemini-enterprise provider, which instead prompts for a **GCP project** (`GOOGLE_CLOUD_PROJECT`, required) and a **GCP location** (`GOOGLE_CLOUD_LOCATION`, optional, defaults to `global`), and skipped for the bedrock provider, which instead prompts for AWS access key ID, secret access key, and region; the copilot provider's API-key step auto-detects an existing `gh auth token` session (or offers `gh`'s device-flow login) instead of requiring a pasted key,
 - a **base URL** for providers that require one (the openai-compatible provider prompts for `OPENAI_COMPATIBLE_BASE_URL`),
 - a **model ID** stored as `OPENWIKI_MODEL_ID` — chosen from the provider's model list or a custom ID,
 - optional `LANGSMITH_API_KEY` for tracing.
@@ -210,6 +210,8 @@ The help content is centralized in `src/commands.ts` and is used by the CLI UI. 
 - `src/commands.ts`
 - `src/credentials.tsx`
 - `src/constants.ts`
+- `src/copilotAuth.ts`
+- `src/copilotModels.ts`
 - `src/env.ts`
 - `src/agent/index.ts`
 - `src/agent/openai-chatgpt-oauth.ts`
@@ -219,4 +221,6 @@ The help content is centralized in `src/commands.ts` and is used by the CLI UI. 
 - `src/auth/ngrok.ts`
 - `README.md`
 - `package.json`
+- Git evidence: commits `ceded10`, `f89b05d`, `fd3a702`, `8278c36`, `0fa1430`
+package.json`
 - Git evidence: commits `ceded10`, `f89b05d`, `fd3a702`, `8278c36`, `0fa1430`
